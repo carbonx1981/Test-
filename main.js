@@ -1,11 +1,13 @@
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 4000;
 
 app.use(express.json());
+app.use('/static', express.static(path.join(__dirname, 'static')));
 
-const logFile = 'location-log.txt';
+const logFile = '/tmp/location-log.txt';
 
 app.post('/owntracks/:user/:device', (req, res) => {
   const entry = {
@@ -14,11 +16,9 @@ app.post('/owntracks/:user/:device', (req, res) => {
     device: req.params.device,
     data: req.body
   };
-
   const logLine = JSON.stringify(entry) + '\n';
   fs.appendFileSync(logFile, logLine);
-
-  console.log('Location received and logged:', entry);
+  console.log('Logged location:', entry);
   res.status(200).send('OK');
 });
 
@@ -33,6 +33,25 @@ app.get('/log', (req, res) => {
   } else {
     res.status(404).send('No log file found.');
   }
+});
+
+app.get('/map', (req, res) => {
+  res.sendFile(path.join(__dirname, 'static', 'map.html'));
+});
+
+app.get('/mapdata', (req, res) => {
+  if (!fs.existsSync(logFile)) return res.json([]);
+  const lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
+  const data = lines.map(line => {
+    try {
+      const parsed = JSON.parse(line);
+      const { lat, lon } = parsed.data;
+      return { lat, lon, user: parsed.user, time: parsed.timestamp };
+    } catch (e) {
+      return null;
+    }
+  }).filter(Boolean);
+  res.json(data);
 });
 
 app.listen(port, () => {

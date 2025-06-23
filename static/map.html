@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OwnTracks Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([64.86, 11.6], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(map);
+
+  fetch('/mapdata').then(res => res.json()).then(data => {
+    data.forEach(loc => {
+      if (loc.lat && loc.lon) {
+        L.marker([loc.lat, loc.lon]).addTo(map)
+         .bindPopup(loc.user + '<br>' + loc.time);
+      }
+    });
+  });
+</script>
+</body>
+</html>

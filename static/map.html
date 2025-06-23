@@ -2,30 +2,101 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>OwnTracks Map</title>
+  <title>OwnTracks Map (Focus + Replay)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; }
+    #replay { position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 5px; }
   </style>
 </head>
 <body>
+<div id="replay">
+  <button onclick="startReplay()">Replay</button> <button onclick="clearMap()">Clear</button>
+</div>
 <div id="map"></div>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js">
+  function clearMap() {
+    if (confirm('Are you sure you want to clear all map data?')) {
+      fetch('/clearlog', { method: 'POST' }).then(() => {
+        updateMap(); // oppdater kartet etter sletting
+      });
+    }
+  }
+</script>
 <script>
   const map = L.map('map').setView([64.86, 11.6], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19
   }).addTo(map);
 
-  fetch('/mapdata').then(res => res.json()).then(data => {
-    data.forEach(loc => {
-      if (loc.lat && loc.lon) {
-        L.marker([loc.lat, loc.lon]).addTo(map)
-         .bindPopup(loc.user + '<br>' + loc.time);
-      }
+  let markers = [];
+  let replayMarkers = [];
+  let replayIndex = 0;
+  let replayData = [];
+
+  function updateMap() {
+    fetch('/mapdata').then(res => res.json()).then(data => {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      if (data.length === 0) return;
+
+      data.forEach((loc, index) => {
+        if (loc.lat && loc.lon) {
+          const isLast = index === data.length - 1;
+          const marker = L.circleMarker([loc.lat, loc.lon], {
+            radius: 8,
+            color: isLast ? 'red' : 'blue',
+            fillColor: isLast ? 'red' : 'blue',
+            fillOpacity: 0.8
+          }).addTo(map).bindPopup(loc.user + '<br>' + loc.time);
+          markers.push(marker);
+          if (isLast) {
+            map.setView([loc.lat, loc.lon], 15);
+          }
+        }
+      });
+
+      replayData = data;
     });
-  });
+  }
+
+  function startReplay() {
+    replayMarkers.forEach(m => map.removeLayer(m));
+    replayMarkers = [];
+    replayIndex = 0;
+    if (replayData.length === 0) return;
+    playNext();
+  }
+
+  function playNext() {
+    if (replayIndex >= replayData.length) return;
+    const loc = replayData[replayIndex];
+    if (loc.lat && loc.lon) {
+      const marker = L.circleMarker([loc.lat, loc.lon], {
+        radius: 6,
+        color: 'green',
+        fillColor: 'green',
+        fillOpacity: 0.7
+      }).addTo(map).bindPopup(loc.user + '<br>' + loc.time);
+      replayMarkers.push(marker);
+      map.setView([loc.lat, loc.lon], 14);
+    }
+    replayIndex++;
+    setTimeout(playNext, 1000); // ett punkt per sekund
+  }
+
+  updateMap();
+  setInterval(updateMap, 60000); // oppdater hvert minutt
+
+  function clearMap() {
+    if (confirm('Are you sure you want to clear all map data?')) {
+      fetch('/clearlog', { method: 'POST' }).then(() => {
+        updateMap(); // oppdater kartet etter sletting
+      });
+    }
+  }
 </script>
 </body>
 </html>

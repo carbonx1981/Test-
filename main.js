@@ -54,6 +54,14 @@ app.get('/mapdata', (req, res) => {
   res.json(data);
 });
 
+
+app.post('/clearlog', (req, res) => {
+  if (fs.existsSync(logFile)) {
+    fs.unlinkSync(logFile);
+  }
+  res.status(200).send('Log cleared');
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
